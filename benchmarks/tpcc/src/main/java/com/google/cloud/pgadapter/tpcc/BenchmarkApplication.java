@@ -42,6 +42,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -85,7 +86,7 @@ public class BenchmarkApplication implements CommandLineRunner {
     String spannerConnectionUrl =
         String.format(
             "jdbc:cloudspanner:/projects/%s/instances/%s/databases/%s?numChannels=%d;minSessions=%d;maxSessions=%d"
-                + (pgAdapterConfiguration.getCredentials() == null
+                + (StringUtils.isEmpty(pgAdapterConfiguration.getCredentials())
                     ? ""
                     : ";credentials=" + pgAdapterConfiguration.getCredentials()),
             spannerConfiguration.getProject(),
