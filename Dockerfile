@@ -1,4 +1,4 @@
-FROM busybox:latest
+FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/alpine:latest
 
 ARG BUILD_DATE
 
