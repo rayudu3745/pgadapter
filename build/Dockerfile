@@ -2,7 +2,7 @@
 #                                     BUILD                                    #
 ################################################################################
 
-FROM maven:3-eclipse-temurin-21 AS build
+FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/maven:3-eclipse-temurin-21 AS build
 
 # Copy over build files to docker image.
 COPY LICENSE ./
@@ -24,7 +24,7 @@ RUN mvn package -Passembly -DskipTests
 #                                   RELEASE                                    #
 ################################################################################
 
-FROM eclipse-temurin:22-jre
+FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/eclipse-temurin:21-jre-alpine
 
 COPY --from=build target/pgadapter /home/pgadapter
 COPY --from=build LICENSE /home/pgadapter/
