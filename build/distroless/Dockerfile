@@ -2,7 +2,7 @@
 #                                     BUILD                                    #
 ################################################################################
 
-FROM maven:3-eclipse-temurin-21 AS build
+FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/maven:3-eclipse-temurin-21 AS build
 
 # Copy over build files to docker image.
 COPY LICENSE ./
