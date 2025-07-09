@@ -1,0 +1,38 @@
+timeout: '1200s'  # 10min
+steps:
+- name: 'docker'
+  args: [ 'buildx', 'create', '--driver', 'docker-container', '--name', 'container', '--use' ]
+- name: gcr.io/cloud-builders/docker
+  id: Build_Docker_Image
+  dir: multiarch-test
+  entrypoint: bash
+  args:
+  - -c
+  - |
+    set -eux
+    docker buildx build --platform linux/amd64 -t multiarchtest:latest-amd64 --load .
+    docker buildx build --platform linux/arm64 -t multiarchtest:latest-arm64 --load .
+    docker push multiarchtest:latest-amd64
+    docker push multiarchtest:latest-arm64
+    amdSHA=$(docker inspect --format='{{index .RepoDigests 0}}' multiarchtest:latest-amd64)
+    armSHA=$(docker inspect --format='{{index .RepoDigests 0}}' multiarchtest:latest-arm64)
+    echo "creating manifest"
+    docker manifest create multiarchtest:${_LOUHI_REF_SHA} \
+      $amdSHA \
+      $armSHA
+    
+    docker manifest create multiarchtest:latest \
+      $amdSHA \
+      $armSHA
+    echo "pushing manifest"
+    docker manifest push multiarchtest:${_LOUHI_REF_SHA}
+    docker manifest push multiarchtest:latest
+dependencies:
+- gitSource:
+    repository:
+      url: "${_LOUHI_REPOSITORY_URL}"
+    revision: "${_LOUHI_REF_SHA}"
+    destPath: "multiarch-test"
+images:
+- 'multiarchtest:latest-arm64'
+- 'multiarchtest:latest-amd64'
