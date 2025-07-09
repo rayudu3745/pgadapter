@@ -4,7 +4,6 @@ steps:
   args: [ 'buildx', 'create', '--driver', 'docker-container', '--name', 'container', '--use' ]
 - name: gcr.io/cloud-builders/docker
   id: Build_Docker_Image
-  dir: multiarch-test
   entrypoint: bash
   args:
   - -c
@@ -32,7 +31,7 @@ dependencies:
     repository:
       url: "${_LOUHI_REPOSITORY_URL}"
     revision: "${_LOUHI_REF_SHA}"
-    destPath: "multiarch-test"
+    destPath: "."
 images:
 - 'multiarchtest:latest-arm64'
 - 'multiarchtest:latest-amd64'
