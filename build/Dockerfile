@@ -14,11 +14,13 @@ COPY src src/
 COPY pom.xml ./
 COPY license-checks.xml ./
 COPY java.header ./
+
+COPY settings.xml /root/.m2/settings.xml
 # Download dependencies
-RUN mvn dependency:go-offline
+RUN mvn -s /root/.m2/settings.xml dependency:go-offline
 
 # Build from source.
-RUN mvn package -Passembly -DskipTests
+RUN mvn -s /root/.m2/settings.xml package -Passembly -DskipTests
 
 ################################################################################
 #                                   RELEASE                                    #
