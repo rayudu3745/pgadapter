@@ -2,67 +2,19 @@
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
   <mirrors>
-    <mirror>
-      <id>google-maven-central</id>
-      <name>GCS Maven Central mirror</name>
-      <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
-      <mirrorOf>external:https:*</mirrorOf>
-    </mirror>
-    <mirror>
-        <id>maven-3p-trusted</id>
-        <name>Airlock trusted</name>
-        <url>artifactregistry://us-maven.pkg.dev/artifact-foundry-prod/maven-3p-trusted</url>
-        <mirrorOf>external:artifactregistry:*</mirrorOf>
-    </mirror>
+      <mirror>
+          <id>google-maven-central</id>
+          <name>GCS Maven Central mirror</name>
+          <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
+          <mirrorOf>external:https:*</mirrorOf>
+      </mirror>
+      <mirror>
+          <id>maven-3p-trusted</id>
+          <name>Airlock trusted</name>
+          <url>artifactregistry://us-maven.pkg.dev/artifact-foundry-prod/maven-3p-trusted</url>
+          <mirrorOf>external:artifactregistry:*</mirrorOf>
+      </mirror>
   </mirrors>
-  <pluginRepositories>
-    <pluginRepository>
-      <id>maven-3p-trusted</id>
-      <name>Airlock trusted</name>
-      <url>artifactregistry://us-maven.pkg.dev/artifact-foundry-prod/maven-3p-trusted</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </pluginRepository>
-      <pluginRepository>
-          <id>google-maven-central</id>
-          <name>google-maven-central</name>
-          <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
-          <releases>
-              <enabled>true</enabled>
-          </releases>
-          <snapshots>
-              <enabled>false</enabled>
-          </snapshots>
-      </pluginRepository>
-  </pluginRepositories>
-  <repositories>
-    <repository>
-      <id>maven-3p-trusted</id>
-      <name>Airlock trusted</name>
-      <url>artifactregistry://us-maven.pkg.dev/artifact-foundry-prod/maven-3p-trusted</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
-      <repository>
-          <id>google-maven-central</id>
-          <name>google-maven-central</name>
-          <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
-          <releases>
-              <enabled>true</enabled>
-          </releases>
-          <snapshots>
-              <enabled>false</enabled>
-          </snapshots>
-      </repository>
-  </repositories>
     <profiles>
         <profile>
             <id>airlock</id>
@@ -74,6 +26,17 @@
                     <id>maven-3p-trusted</id>
                     <name>Airlock trusted</name>
                     <url>artifactregistry://us-maven.pkg.dev/artifact-foundry-prod/maven-3p-trusted</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>google-maven-central</id>
+                    <name>google-maven-central</name>
+                    <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
                     <releases>
                         <enabled>true</enabled>
                     </releases>
@@ -94,7 +57,23 @@
                         <enabled>false</enabled>
                     </snapshots>
                 </pluginRepository>
+                <pluginRepository>
+                    <id>google-maven-central</id>
+                    <name>google-maven-central</name>
+                    <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
             </pluginRepositories>
+            <extension>
+                <groupId>com.google.cloud.artifactregistry</groupId>
+                <artifactId>artifactregistry-maven-wagon</artifactId>
+                <version>2.2.5</version> <!-- Use the latest version -->
+            </extension>
         </profile>
     </profiles>
 </settings>
