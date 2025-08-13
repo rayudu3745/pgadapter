@@ -15,7 +15,7 @@ COPY pom.xml ./
 COPY license-checks.xml ./
 COPY java.header ./
 
-COPY settings.xml /root/.m2/settings.xml
+COPY settings_moss.xml /root/.m2/settings.xml
 # Download dependencies
 RUN mvn -s /root/.m2/settings.xml dependency:go-offline
 
