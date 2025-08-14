@@ -21,7 +21,7 @@ COPY settings_moss.xml /root/.m2/settings.xml
 RUN mvn -s /root/.m2/settings.xml dependency:go-offline
 
 # Build from source.
-RUN mvn -s /root/.m2/settings.xml package -Passembly -DskipTests
+RUN mvn package -Passembly -DskipTests
 
 ################################################################################
 #                                   RELEASE                                    #
