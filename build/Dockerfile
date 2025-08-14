@@ -28,7 +28,7 @@ RUN mvn -s /root/.m2/settings.xml package -Passembly -DskipTests
 ################################################################################
 
 #jre23
-FROM gcr.io/distroless/java17
+FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/eclipse-temurin@sha256:7d12359ea1e8e8622326eec19dace71897f08b8886dbf071fed4c79744f44f7e
 
 COPY --from=build target/pgadapter /home/pgadapter
 COPY --from=build LICENSE /home/pgadapter/
