@@ -1,7 +1,5 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-
-
   <mirrors>
     <mirror>
       <id>airlock</id>
@@ -29,8 +27,31 @@
             <enabled>false</enabled>
           </snapshots>
         </repository>
+        <repository>
+          <id>central</id>
+          <name>Central Repository (mirrored)</name>
+          <url>https://repo.maven.apache.org/maven2</url>
+          <releases>
+            <updatePolicy>never</updatePolicy>
+          </releases>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+        </repository>
       </repositories>
       <pluginRepositories>
+        <pluginRepository>
+          <id>airlock</id>
+          <name>Airlock Trusted</name>
+          <url>artifactregistry://us-maven.pkg.dev/artifact-foundry-prod/maven-3p-trusted</url>
+          <layout>default</layout>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+        </pluginRepository>
         <pluginRepository>
           <id>central</id>
           <name>Central Repository</name>
