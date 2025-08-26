@@ -17,6 +17,7 @@ COPY pom.xml ./
 COPY license-checks.xml ./
 COPY java.header ./
 
+
 COPY settings_wagon_moss.xml /root/.m2/settings_wagon_moss.xml
 # Download the artifactregistry-maven-wagon
 RUN mvn -s /root/.m2/settings_wagon_moss.xml dependency:get -Dartifact="com.google.cloud.artifactregistry:artifactregistry-maven-wagon:2.2.4"
