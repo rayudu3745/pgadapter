@@ -1,53 +1,25 @@
 ################################################################################
-#                                     BUILD                                    #
-################################################################################
-
-# maven:3-eclipse-temurin-21
-FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/maven@sha256:8472bdbac39626b70d2efcf87e23468ff0bea9ba48c35181b07e6932b5fda001 AS build
-
-
-# Copy over build files to docker image.
-COPY LICENSE ./
-COPY CONTRIBUTING.md ./
-COPY README.md ./
-COPY NOTIFICATIONS.md ./
-COPY logging.properties ./
-COPY src src/
-COPY pom.xml ./
-COPY license-checks.xml ./
-COPY java.header ./
-
-COPY settings_wagon_moss.xml /root/.m2/settings_wagon_moss.xml
-# Download the artifactregistry-maven-wagon
-RUN mvn -B -s /root/.m2/settings_wagon_moss.xml dependency:get -Dartifact="com.google.cloud.artifactregistry:artifactregistry-maven-wagon:2.2.4"
-
-# Copy airlock settings
-COPY settings_moss.xml /root/.m2/settings.xml
-
-COPY extensions_moss.xml .mvn/extensions.xml
-
-# Download dependencies from airlock
-RUN mvn -B -s /root/.m2/settings.xml dependency:go-offline
-
-# Build from source.
-RUN mvn -B -s /root/.m2/settings.xml package -Passembly -DskipTests
-
-################################################################################
 #                                   RELEASE                                    #
 ################################################################################
 
 #eclipse-temurin:21-jdk
 FROM us-docker.pkg.dev/artifact-foundry-prod/docker-3p-trusted/eclipse-temurin@sha256:3d92c3222b9d376e420e7099054604dc0d7bafbebbcb4f79ffd77763cd6a1bcd
 
-COPY --from=build target/pgadapter /home/pgadapter
-COPY --from=build LICENSE /home/pgadapter/
-COPY --from=build CONTRIBUTING.md /home/pgadapter/
-COPY --from=build README.md /home/pgadapter/
-COPY --from=build NOTIFICATIONS.md /home/pgadapter/
-COPY --from=build logging.properties /home/pgadapter/
+# Create the working directory
+WORKDIR /home/pgadapter
 
-# Add startup script.
-ADD build/startup.sh /home/pgadapter/startup.sh
+# Copy the pre-built application from the Cloud Build workspace
+COPY target/pgadapter /home/pgadapter
+
+# Copy other necessary files from the Cloud Build workspace
+COPY LICENSE ./
+COPY CONTRIBUTING.md ./
+COPY README.md ./
+COPY NOTIFICATIONS.md ./
+COPY logging.properties ./
+
+# Add and chmod startup script.
+COPY build/startup.sh /home/pgadapter/startup.sh
 RUN chmod +x /home/pgadapter/startup.sh
 
 ENTRYPOINT ["/bin/bash", "/home/pgadapter/startup.sh"]
