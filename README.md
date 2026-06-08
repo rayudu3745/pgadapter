@@ -18,6 +18,7 @@ PGAdapter can be used with the following drivers and clients:
 1. `pgx`: Version 4.15 and higher are supported. See [pgx support](docs/pgx.md) for more details.
 1. `psycopg2`: Version 2.9.3 and higher are supported. See [psycopg2](docs/psycopg2.md) for more details.
 1. `psycopg3`: Version 3.1.x and higher are supported. See [psycopg3 support](docs/psycopg3.md) for more details.
+1. `Python ADBC`: Version 1.10.x and higher are supported. See [Python ADBC support](docs/adbc.md) for more details.
 1. `connectorx`: Version 0.3.3 and higher have experimental support. See [connectorx sample](samples/python/connectorx) for more details.
 1. `node-postgres`: Version 8.8.0 and higher are supported. See [node-postgres support](docs/node-postgres.md) for more details.
 1. `npgsql`: Version 6.0.x and higher have experimental support. See [npgsql support](docs/npgsql.md) for more details.
@@ -118,9 +119,9 @@ Use the `-s` option to specify a different local port than the default 5432 if y
 PostgreSQL running on your local system.
 
 <!--- {x-version-update-start:google-cloud-spanner-pgadapter:released} -->
-You can also download a specific version of the jar. Example (replace `v0.53.1` with the version you want to download):
+You can also download a specific version of the jar. Example (replace `v0.54.1` with the version you want to download):
 ```shell
-VERSION=v0.53.1
+VERSION=v0.54.1
 wget https://storage.googleapis.com/pgadapter-jar-releases/pgadapter-${VERSION}.tar.gz \
   && tar -xzvf pgadapter-${VERSION}.tar.gz
 java -jar pgadapter.jar -p my-project -i my-instance -d my-database
@@ -155,7 +156,7 @@ This option is only available for Java/JVM-based applications.
 <dependency>
   <groupId>com.google.cloud</groupId>
   <artifactId>google-cloud-spanner-pgadapter</artifactId>
-  <version>0.53.1</version>
+  <version>0.54.1</version>
 </dependency>
 <!-- [END pgadapter_dependency] -->
 ```

@@ -239,14 +239,14 @@ public class ClientAutoDetector {
               RegexQueryPartReplacer.replace(
                   Pattern.compile("pg_get_constraintdef\\s*\\(.+\\)\\s*AS\\s+"), "conbin AS "),
               RegexQueryPartReplacer.replace(
-                  Pattern.compile("'\"(.+?)\"'::regclass"), "'''\"public\".\"$1\"'''"),
+                  Pattern.compile("'\"(.+?)\"'::regclass"),
+                  "mod(abs(spanner.farm_fingerprint('public.$1')), 2147483648)"),
               RegexQueryPartReplacer.replace(
                   Pattern.compile(
                       "string_agg\\(enum\\.enumlabel, ',' ORDER BY enum\\.enumsortorder\\)"),
                   "''::varchar"),
               RegexQueryPartReplacer.replace(
-                  Pattern.compile("(\\s+.+?)\\.oid::regclass::text"),
-                  " substr($1.oid, 12, length($1.oid) - 13)"),
+                  Pattern.compile("(\\s+.+?)\\.oid::regclass::text"), " $1.relname"),
               RegexQueryPartReplacer.replace(
                   Pattern.compile(
                       "t\\.typinput\\s*=\\s*'array_in\\(\\s*cstring\\s*,\\s*oid,\\s*integer\\)'::regprocedure"),
@@ -593,6 +593,49 @@ public class ClientAutoDetector {
               .build();
         }
         return ImmutableList.of(new ListDatabasesStatement(connectionHandler));
+      }
+    },
+    ADBC {
+      final ImmutableList<QueryPartReplacer> functionReplacements =
+          ImmutableList.of(
+              RegexQueryPartReplacer.replace(
+                  Pattern.compile("(?i)typreceive\\s*!=\\s*0"), "typreceive != '0'::varchar"),
+              RegexQueryPartReplacer.replace(
+                  Pattern.compile("(?i)typsend\\s*!=\\s*0"), "typsend != '0'::varchar"));
+
+      @Override
+      boolean isClient(List<String> orderedParameterKeys, Map<String, String> parameters) {
+        return false;
+      }
+
+      @Override
+      boolean isClient(List<ParseMessage> skippedParseMessages, List<Statement> statements) {
+        boolean hasVersionQuery =
+            skippedParseMessages.stream()
+                .anyMatch(
+                    p -> {
+                      String sql = p.getSql().toLowerCase(Locale.ENGLISH).trim();
+                      return sql.equals("select version()") || sql.equals("select version();");
+                    });
+        return hasVersionQuery
+            && statements.stream()
+                .anyMatch(
+                    s -> {
+                      String sql = s.getSql().replaceAll("\\s+", " ");
+                      return (sql.contains(
+                                  "SELECT oid, typname, typreceive, typbasetype, typrelid, typarray FROM pg_cat")
+                              && sql.contains("type")
+                              && sql.contains("typreceive != 0 OR typsend != 0"))
+                          || (sql.contains(
+                                  "SELECT attrelid, attname, atttypid FROM pg_catalog.pg_attribute ORDER BY attrelid, attnum")
+                              || sql.contains(
+                                  "SELECT attrelid, attname, atttypid FROM pg_attribute ORDER BY attrelid, attnum"));
+                    });
+      }
+
+      @Override
+      public ImmutableList<QueryPartReplacer> getQueryPartReplacements() {
+        return functionReplacements;
       }
     },
     UNSPECIFIED {

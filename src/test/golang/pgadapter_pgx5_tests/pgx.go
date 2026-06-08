@@ -227,7 +227,7 @@ func TestQueryAllDataTypes(connString string, oid, format int16) *C.char {
 	if g, w := intervalValue, wantIntervalValue; !reflect.DeepEqual(g, w) {
 		return C.CString(fmt.Sprintf("interval value mismatch\n Got: %v\nWant: %v", g, w))
 	}
-	if g, w := varcharValue, "test"; g != w {
+	if g, w := varcharValue, "testÄ"; g != w {
 		return C.CString(fmt.Sprintf("value mismatch\n Got: %v\nWant: %v", g, w))
 	}
 	if g, w := jsonbValue, "{\"key\": \"value\"}"; g != w {
@@ -417,7 +417,7 @@ func TestInsertAllDataTypesReturning(connString string) *C.char {
 	if g, w := intervalValue, wantIntervalValue; !reflect.DeepEqual(g, w) {
 		return C.CString(fmt.Sprintf("interval value mismatch\n Got: %v\nWant: %v", g, w))
 	}
-	if g, w := varcharValue, "test"; g != w {
+	if g, w := varcharValue, "testÄ"; g != w {
 		return C.CString(fmt.Sprintf("value mismatch\n Got: %v\nWant: %v", g, w))
 	}
 	if g, w := jsonbValue, "{\"key\": \"value\"}"; g != w {
@@ -788,7 +788,7 @@ func TestDdlBatchInTransaction(connString string) *C.char {
 		return C.CString("missing expected error for DDL batch in transaction")
 	}
 	// The batch execution should return an error indicating that DDL batches are not supported in transactions.
-	if g, w := err.Error(), "ERROR: DDL statements are not allowed in mixed batches or transactions. (SQLSTATE 25000)"; g != w {
+	if g, w := err.Error(), "error preprocessing batch (prepare): ERROR: DDL statements are not allowed in mixed batches or transactions. (SQLSTATE 25000)"; g != w {
 		return C.CString(fmt.Sprintf("error mismatch\n Got: %v\nWant: %v", g, w))
 	}
 

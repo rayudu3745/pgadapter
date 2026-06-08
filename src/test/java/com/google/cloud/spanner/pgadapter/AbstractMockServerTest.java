@@ -14,8 +14,8 @@
 
 package com.google.cloud.spanner.pgadapter;
 
-import static com.google.cloud.spanner.pgadapter.statements.PgCatalog.PG_TYPE_CTE_EMULATED;
 import static com.google.cloud.spanner.pgadapter.statements.PgCatalog.PgNamespace.PG_NAMESPACE_CTE;
+import static com.google.cloud.spanner.pgadapter.statements.PgCatalog.PgType.PG_TYPE_CTE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -23,7 +23,6 @@ import static org.junit.Assert.assertTrue;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.ServiceOptions;
 import com.google.cloud.spanner.Dialect;
-import com.google.cloud.spanner.DisableDefaultMtlsProvider;
 import com.google.cloud.spanner.ErrorCode;
 import com.google.cloud.spanner.MockSpannerServiceImpl;
 import com.google.cloud.spanner.MockSpannerServiceImpl.StatementResult;
@@ -113,13 +112,13 @@ import org.postgresql.util.PGobject;
 public abstract class AbstractMockServerTest {
   private static final Logger logger = Logger.getLogger(AbstractMockServerTest.class.getName());
 
-  public static final String PG_TYPE_PREFIX = PG_NAMESPACE_CTE + ",\n" + PG_TYPE_CTE_EMULATED;
+  public static final String PG_TYPE_PREFIX = PG_NAMESPACE_CTE + ",\n" + PG_TYPE_CTE;
   public static final String PG_CLASS_PREFIX = String.format(PgClass.PG_CLASS_CTE, "-1", "-1");
   public static final String EMULATED_PG_CLASS_PREFIX =
       String.format(
           PgClass.PG_CLASS_CTE,
-          "'''\"' || t.table_schema || '\".\"' || t.table_name || '\"'''",
-          "'''\"' || i.table_schema || '\".\"' || i.table_name || '\".\"' || i.index_name || '\"'''");
+          "mod(abs(spanner.farm_fingerprint(t.table_schema || '.' || t.table_name)), 2147483648)",
+          "mod(abs(spanner.farm_fingerprint(i.table_schema || '.' || i.table_name || '.' || i.index_name)), 2147483648)");
   public static final String EMULATED_PG_ATTRIBUTE_PREFIX = PgAttribute.PG_ATTRIBUTE_CTE;
   public static final String EMULATED_PG_ATTRDEF_PREFIX = PgAttrdef.PG_ATTRDEF_CTE;
 
@@ -416,7 +415,7 @@ public abstract class AbstractMockServerTest {
                         .build())
                 .addValues(Value.newBuilder().setStringValue("P1Y2M3DT4H5M6.789S").build())
                 .addValues(Value.newBuilder().setStringValue("2022-03-29").build())
-                .addValues(Value.newBuilder().setStringValue("test").build())
+                .addValues(Value.newBuilder().setStringValue("testÄ").build())
                 .addValues(Value.newBuilder().setStringValue("{\"key\": \"value\"}").build())
                 .addValues(
                     Value.newBuilder()
@@ -1283,8 +1282,6 @@ public abstract class AbstractMockServerTest {
       Consumer<TestOptionsMetadataBuilder> optionsConfigurator,
       OpenTelemetry openTelemetry)
       throws Exception {
-    DisableDefaultMtlsProvider.disableDefaultMtlsProvider();
-
     mockSpanner = mockSpannerService;
     mockSpanner.setAbortProbability(0.0D); // We don't want any unpredictable aborted transactions.
     mockSpanner.putStatementResult(
@@ -1468,6 +1465,7 @@ public abstract class AbstractMockServerTest {
     mockInstanceAdmin.reset();
     if (pgServer != null) {
       pgServer.clearDebugMessages();
+      pgServer.autoDescribedStatementsCache.invalidateAll();
     }
   }
 

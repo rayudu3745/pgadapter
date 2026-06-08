@@ -40,6 +40,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -95,6 +96,35 @@ public class OptionsMetadataTest {
         new OptionsMetadata(
             new String[] {"-p", "p", "-i", "i", "-max_backlog", "100", "-c", "credentials.json"});
     assertEquals(100, options.getMaxBacklog());
+  }
+
+  @Test
+  public void testDefaultDescribeCacheOptions() {
+    OptionsMetadata options =
+        new OptionsMetadata(new String[] {"-p", "p", "-i", "i", "-c", "credentials.json"});
+    assertEquals(
+        Duration.ofSeconds(Long.MAX_VALUE).toMinutes(), options.getDescribeCacheExpireMinutes());
+    assertEquals(5000L, options.getDescribeCacheMaxSize());
+  }
+
+  @Test
+  public void testCustomDescribeCacheOptions() {
+    OptionsMetadata options =
+        new OptionsMetadata(
+            new String[] {
+              "-p",
+              "p",
+              "-i",
+              "i",
+              "-describe_cache_expire_minutes",
+              "10",
+              "-describe_cache_max_size",
+              "1000",
+              "-c",
+              "credentials.json"
+            });
+    assertEquals(10L, options.getDescribeCacheExpireMinutes());
+    assertEquals(1000L, options.getDescribeCacheMaxSize());
   }
 
   @Test

@@ -69,8 +69,6 @@ import com.google.cloud.spanner.pgadapter.wireprotocol.WireMessage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.spanner.admin.database.v1.InstanceName;
 import com.google.spanner.v1.DatabaseName;
@@ -82,7 +80,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.security.SecureRandom;
 import java.text.MessageFormat;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -120,12 +117,6 @@ public class ConnectionHandler implements Runnable {
   private final ProxyServer server;
   private Socket socket;
   private final Map<String, IntermediatePreparedStatement> statementsMap = new HashMap<>();
-  private final Cache<String, Future<DescribeResult>> autoDescribedStatementsCache =
-      CacheBuilder.newBuilder()
-          .expireAfterWrite(Duration.ofMinutes(30L))
-          .maximumSize(5000L)
-          .concurrencyLevel(1)
-          .build();
   private final Map<String, IntermediatePortalStatement> portalsMap = new HashMap<>();
   private volatile ConnectionStatus status = ConnectionStatus.UNAUTHENTICATED;
   private Thread thread;
@@ -147,6 +138,7 @@ public class ConnectionHandler implements Runnable {
   private int invalidMessagesCount;
   private Connection spannerConnection;
   private DatabaseId databaseId;
+  private String databaseName;
   private WellKnownClient wellKnownClient = WellKnownClient.UNSPECIFIED;
   private boolean hasDeterminedClientUsingQuery;
 
@@ -285,6 +277,7 @@ public class ConnectionHandler implements Runnable {
     spannerConnection.setSavepointSupport(SavepointSupport.ENABLED);
     this.spannerConnection = spannerConnection;
     this.databaseId = connectionOptions.getDatabaseId();
+    this.databaseName = databaseId.getName();
     this.extendedQueryProtocolHandler = new ExtendedQueryProtocolHandler(this);
   }
 
@@ -818,12 +811,32 @@ public class ConnectionHandler implements Runnable {
    * in the cache.
    */
   public Future<DescribeResult> getAutoDescribedStatement(String sql) {
-    return this.autoDescribedStatementsCache.getIfPresent(sql);
+    if (this.databaseName == null) {
+      return null;
+    }
+    return this.server.autoDescribedStatementsCache.getIfPresent(this.databaseName + sql);
   }
 
   /** Stores the parameter types of an auto-described statement in the cache. */
   public void registerAutoDescribedStatement(String sql, Future<DescribeResult> describeResult) {
-    this.autoDescribedStatementsCache.put(sql, describeResult);
+    if (this.databaseName == null) {
+      return;
+    }
+    this.server.autoDescribedStatementsCache.put(this.databaseName + sql, describeResult);
+  }
+
+  private boolean shouldSkipForClientDetection(
+      String sql, AbstractStatementParser.StatementType statementType) {
+    if (statementType == StatementType.CLIENT_SIDE) {
+      return true;
+    }
+    // Skip standard version queries.
+    String normalized = sql.toLowerCase(Locale.ENGLISH).trim();
+    if (normalized.equals("select version()") || normalized.equals("select version();")) {
+      return true;
+    }
+    // Also skip empty statements.
+    return normalized.isEmpty() || normalized.equals(";");
   }
 
   public void closeStatement(String statementName) {
@@ -977,7 +990,7 @@ public class ConnectionHandler implements Runnable {
             && skippedAutoDetectParseMessages.size() < 10) {
           ParsedStatement parsedStatement =
               AbstractStatementParser.getInstance(Dialect.POSTGRESQL).parse(statement);
-          if (parsedStatement.getType() == StatementType.CLIENT_SIDE) {
+          if (shouldSkipForClientDetection(statement.getSql(), parsedStatement.getType())) {
             skippedAutoDetectParseMessages.add(new ParseMessage(this, parsedStatement, statement));
             return;
           }
@@ -1005,7 +1018,8 @@ public class ConnectionHandler implements Runnable {
       // chosen as a reasonable number of statements that should be enough. It can safely be
       // increased if we encounter clients that send more than 10 client-side statements before
       // sending anything that we can use to automatically recognize them.
-      if (parseMessage.getStatement().getStatementType() == StatementType.CLIENT_SIDE
+      if (shouldSkipForClientDetection(
+              parseMessage.getStatement().getSql(), parseMessage.getStatement().getStatementType())
           && skippedAutoDetectParseMessages.size() < 10) {
         skippedAutoDetectParseMessages.add(parseMessage);
       } else {

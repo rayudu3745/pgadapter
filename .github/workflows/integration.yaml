@@ -16,6 +16,9 @@ on:
           - staging-wrenchworks.sandbox.googleapis.com
           - preprod-spanner.sandbox.googleapis.com
 name: integration
+permissions:
+  contents: read
+  issues: write
 env:
   GOOGLE_CLOUD_PROJECT: "span-cloud-testing"
   GOOGLE_CLOUD_INSTANCE: "pgadapter-testing"
@@ -101,7 +104,7 @@ jobs:
           node-version: 24
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4.8'
+          ruby-version: '4.0.3'
           bundler-cache: true
       - name: Setup psql
         run: |
@@ -142,7 +145,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_DATABASE: pgadapter
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           directory: ./target/site/jacoco-merged-test-coverage-report
           fail_ci_if_error: false
@@ -158,4 +161,4 @@ jobs:
           ENDPOINT: ${{ env.GOOGLE_CLOUD_ENDPOINT }}
         with:
           filename: .github/integration-test-failed-template.md
-          assignees: pratickchokhani, olavloite
+          assignees: olavloite, rayudu3745
