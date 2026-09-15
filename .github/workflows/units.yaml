@@ -1,5 +1,9 @@
 on:
   pull_request:
+  # TEMPORARY (windows-psql-ci experiment only) - revert before merging.
+  push:
+    branches:
+      - windows-psql-ci
 name: units
 permissions:
   contents: read
@@ -55,7 +59,30 @@ jobs:
           distribution: zulu
           java-version: ${{matrix.java}}
       - run: java -version
+      # The runner image ships PostgreSQL but only puts its root directory on PATH, so psql is not
+      # found and every psql-gated test silently skips on Windows.
+      - name: Add psql to PATH
+        shell: pwsh
+        run: echo "$env:PGBIN" >> $env:GITHUB_PATH
+      - name: Verify psql is available
+        shell: pwsh
+        run: psql --version
       - run: mvn -B test
+      # TEMPORARY (windows-psql-ci experiment only): encode the result in the job status, since a
+      # skipped test would otherwise still report as a pass.
+      - name: Assert psql-gated tests actually ran
+        if: always()
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path target/surefire-reports -Filter '*SpannerPGConnectorMockServerTest*.xml' -ErrorAction SilentlyContinue
+          if (-not $files) { throw 'FAIL: no surefire report for SpannerPGConnectorMockServerTest' }
+          [xml]$x = Get-Content $files[0].FullName
+          $t = [int]$x.testsuite.tests
+          $s = [int]$x.testsuite.skipped
+          Write-Host "SpannerPGConnectorMockServerTest tests=$t skipped=$s"
+          if ($t -eq 0) { throw 'FAIL: no tests in class' }
+          if ($s -gt 0) { throw "FAIL: $s test(s) still skipped on Windows" }
+          Write-Host 'OK: connector psql tests ran on Windows'
   macos:
     runs-on: macos-latest
     env:
