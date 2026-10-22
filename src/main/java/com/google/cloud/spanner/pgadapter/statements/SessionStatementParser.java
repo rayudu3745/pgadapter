@@ -109,7 +109,18 @@ public class SessionStatementParser {
       if (local) {
         sessionState.setLocal(extension, name, value);
       } else {
-        sessionState.set(extension, name, value);
+        if (extension == null && "default_transaction_isolation".equalsIgnoreCase(name)) {
+          if (value == null) {
+            sessionState.setDefaultIsolationLevel(
+                sessionState.getInitialIsolationLevel(), connection.isInTransaction());
+          } else {
+            sessionState.setDefaultIsolationLevel(
+                SessionState.toSpannerIsolationLevel(value), connection.isInTransaction());
+          }
+          BackendConnection.syncConnectionDefaultIsolationLevel(sessionState, connection);
+        } else {
+          sessionState.set(extension, name, value);
+        }
       }
       return SET_RESULT;
     }
@@ -149,13 +160,20 @@ public class SessionStatementParser {
     @Override
     public StatementResult execute(SessionState sessionState, Connection connection) {
       if (extension == null && name != null) {
-        PGSetting setting = sessionState.get(null, name);
-        sessionState.set(null, name, setting.getResetVal());
+        if ("default_transaction_isolation".equalsIgnoreCase(name)) {
+          sessionState.setDefaultIsolationLevel(
+              sessionState.getInitialIsolationLevel(), connection.isInTransaction());
+          BackendConnection.syncConnectionDefaultIsolationLevel(sessionState, connection);
+        } else {
+          PGSetting setting = sessionState.get(null, name);
+          sessionState.set(null, name, setting.getResetVal());
+        }
       } else if (extension != null && name != null) {
         sessionState.set(extension, name, null);
       } else {
-        sessionState.resetAll();
+        sessionState.resetAll(connection.isInTransaction());
         connection.reset();
+        BackendConnection.syncConnectionDefaultIsolationLevel(sessionState, connection);
       }
       return RESET_RESULT;
     }
@@ -266,13 +284,32 @@ public class SessionStatementParser {
   }
 
   public static @Nullable SessionStatement parse(ParsedStatement parsedStatement, String sql) {
-    if (parsedStatement.getType() == StatementType.CLIENT_SIDE
-        && parsedStatement.getClientSideStatementType() != ClientSideStatementType.RESET_ALL) {
-      // This statement is handled by the Connection API.
-      return null;
+    if (parsedStatement.getType() == StatementType.CLIENT_SIDE) {
+      ClientSideStatementType clientSideType = parsedStatement.getClientSideStatementType();
+      if (clientSideType != ClientSideStatementType.RESET_ALL
+          && clientSideType != ClientSideStatementType.SHOW_TRANSACTION_ISOLATION_LEVEL
+          && clientSideType != ClientSideStatementType.SHOW_DEFAULT_TRANSACTION_ISOLATION
+          && clientSideType != ClientSideStatementType.SET_DEFAULT_TRANSACTION_ISOLATION
+          && clientSideType != ClientSideStatementType.SET_READONLY) {
+        // This statement is handled by the Connection API.
+        return null;
+      }
     }
     SimpleParser parser = new SimpleParser(sql);
     if (parser.eatKeyword("set")) {
+      if (parsedStatement.getType() == StatementType.CLIENT_SIDE) {
+        SimpleParser lookahead = new SimpleParser(sql);
+        lookahead.eatKeyword("set");
+        if (!lookahead.eatKeyword("local")) {
+          lookahead.eatKeyword("session");
+        }
+        TableOrIndexName name = lookahead.readTableOrIndexName();
+        if (name == null
+            || name.schema != null
+            || !"default_transaction_isolation".equalsIgnoreCase(unquote(name.name))) {
+          return null;
+        }
+      }
       return parseSetStatement(parser);
     }
     if (parser.eatKeyword("reset")) {
@@ -387,6 +424,8 @@ public class SessionStatementParser {
     TableOrIndexName name = null;
     if (parser.eatKeyword("time", "zone")) {
       name = new TableOrIndexName("TIMEZONE");
+    } else if (parser.eatKeyword("transaction", "isolation", "level")) {
+      name = new TableOrIndexName("transaction_isolation");
     } else {
       name = parser.readTableOrIndexName();
     }

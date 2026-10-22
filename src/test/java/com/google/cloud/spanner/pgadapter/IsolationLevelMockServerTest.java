@@ -29,7 +29,6 @@ import java.sql.SQLException;
 import java.util.List;
 import org.junit.After;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -76,7 +75,7 @@ public class IsolationLevelMockServerTest extends AbstractMockServerTest {
       stmt.execute("commit");
     }
 
-    assertIsolationLevel(IsolationLevel.SERIALIZABLE);
+    assertIsolationLevel(IsolationLevel.ISOLATION_LEVEL_UNSPECIFIED);
   }
 
   @Test
@@ -134,22 +133,212 @@ public class IsolationLevelMockServerTest extends AbstractMockServerTest {
     assertIsolationLevel(IsolationLevel.REPEATABLE_READ);
   }
 
-  @Ignore("Requires https://github.com/googleapis/java-spanner/pull/4285")
   @Test
   public void testShowDefaultIsolationLevel() throws SQLException {
     try (Connection connection = DriverManager.getConnection(createUrl("my_db"));
         java.sql.Statement stmt = connection.createStatement()) {
+      assertEquals(Connection.TRANSACTION_SERIALIZABLE, connection.getTransactionIsolation());
+      for (String sql :
+          new String[] {
+            "show default_transaction_isolation",
+            "show transaction isolation level",
+            "show transaction_isolation"
+          }) {
+        try (ResultSet rs = stmt.executeQuery(sql)) {
+          assertTrue(rs.next());
+          assertEquals("serializable", rs.getString(1));
+          assertFalse(rs.next());
+        }
+      }
+      stmt.execute("set default_transaction_isolation='repeatable read'");
+      assertEquals(Connection.TRANSACTION_REPEATABLE_READ, connection.getTransactionIsolation());
+      for (String sql :
+          new String[] {
+            "show default_transaction_isolation",
+            "show transaction isolation level",
+            "show transaction_isolation"
+          }) {
+        try (ResultSet rs = stmt.executeQuery(sql)) {
+          assertTrue(rs.next());
+          assertEquals("repeatable read", rs.getString(1));
+          assertFalse(rs.next());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testShowTransactionIsolationInTransaction() throws SQLException {
+    try (Connection connection = DriverManager.getConnection(createUrl("my_db"));
+        java.sql.Statement stmt = connection.createStatement()) {
+      stmt.execute("begin isolation level repeatable read");
       try (ResultSet rs = stmt.executeQuery("show default_transaction_isolation")) {
         assertTrue(rs.next());
         assertEquals("serializable", rs.getString(1));
         assertFalse(rs.next());
       }
+      for (String sql :
+          new String[] {"show transaction isolation level", "show transaction_isolation"}) {
+        try (ResultSet rs = stmt.executeQuery(sql)) {
+          assertTrue(rs.next());
+          assertEquals("repeatable read", rs.getString(1));
+          assertFalse(rs.next());
+        }
+      }
+      stmt.execute("commit");
+      for (String sql :
+          new String[] {"show transaction isolation level", "show transaction_isolation"}) {
+        try (ResultSet rs = stmt.executeQuery(sql)) {
+          assertTrue(rs.next());
+          assertEquals("serializable", rs.getString(1));
+          assertFalse(rs.next());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testResetDefaultIsolationLevel() throws SQLException {
+    try (Connection connection = DriverManager.getConnection(createUrl("my_db"));
+        java.sql.Statement stmt = connection.createStatement()) {
       stmt.execute("set default_transaction_isolation='repeatable read'");
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.REPEATABLE_READ);
+      mockSpanner.clearRequests();
+
+      stmt.execute("reset default_transaction_isolation");
       try (ResultSet rs = stmt.executeQuery("show default_transaction_isolation")) {
         assertTrue(rs.next());
-        assertEquals("repeatable_read", rs.getString(1));
+        assertEquals("serializable", rs.getString(1));
         assertFalse(rs.next());
       }
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.ISOLATION_LEVEL_UNSPECIFIED);
+    }
+  }
+
+  @Test
+  public void testSetDefaultIsolationLevelToDefaultWithStartupOption() throws SQLException {
+    String url =
+        createUrl("my_db") + "&options=-c%20default_transaction_isolation='repeatable read'";
+    try (Connection connection = DriverManager.getConnection(url);
+        java.sql.Statement stmt = connection.createStatement()) {
+      stmt.execute("set default_transaction_isolation = 'serializable'");
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.SERIALIZABLE);
+      mockSpanner.clearRequests();
+
+      stmt.execute("set default_transaction_isolation = default");
+      try (ResultSet rs = stmt.executeQuery("show default_transaction_isolation")) {
+        assertTrue(rs.next());
+        assertEquals("repeatable read", rs.getString(1));
+        assertFalse(rs.next());
+      }
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.REPEATABLE_READ);
+      mockSpanner.clearRequests();
+
+      // Verify that setting default_transaction_read_only does not clobber
+      // default_transaction_isolation.
+      stmt.execute("set default_transaction_read_only = off");
+      try (ResultSet rs = stmt.executeQuery("show default_transaction_isolation")) {
+        assertTrue(rs.next());
+        assertEquals("repeatable read", rs.getString(1));
+        assertFalse(rs.next());
+      }
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.REPEATABLE_READ);
+    }
+  }
+
+  @Test
+  public void testSetAndResetDefaultIsolationLevelInTransaction() throws SQLException {
+    try (Connection connection = DriverManager.getConnection(createUrl("my_db"));
+        java.sql.Statement stmt = connection.createStatement()) {
+      // Setting default_transaction_isolation before the first statement in a transaction must not
+      // clobber the active transaction's explicit isolation level.
+      stmt.execute("begin isolation level repeatable read");
+      stmt.execute("set default_transaction_isolation = 'serializable'");
+      try (ResultSet rs = stmt.executeQuery("show default_transaction_isolation")) {
+        assertTrue(rs.next());
+        assertEquals("serializable", rs.getString(1));
+        assertFalse(rs.next());
+      }
+      for (String sql :
+          new String[] {"show transaction isolation level", "show transaction_isolation"}) {
+        try (ResultSet rs = stmt.executeQuery(sql)) {
+          assertTrue(rs.next());
+          assertEquals("repeatable read", rs.getString(1));
+          assertFalse(rs.next());
+        }
+      }
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.REPEATABLE_READ);
+      mockSpanner.clearRequests();
+
+      // Subsequent transaction uses the committed default_transaction_isolation (SERIALIZABLE),
+      // and RESET ALL / RESET default_transaction_isolation after a statement in an active
+      // transaction must succeed and take effect for the next transaction.
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("reset default_transaction_isolation");
+      stmt.execute("reset all");
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.SERIALIZABLE);
+      mockSpanner.clearRequests();
+
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.ISOLATION_LEVEL_UNSPECIFIED);
+    }
+  }
+
+  @Test
+  public void testRollbackDefaultIsolationLevel() throws SQLException {
+    try (Connection connection = DriverManager.getConnection(createUrl("my_db"));
+        java.sql.Statement stmt = connection.createStatement()) {
+      stmt.execute("begin");
+      stmt.execute("set default_transaction_isolation = 'repeatable read'");
+      try (ResultSet rs = stmt.executeQuery("show default_transaction_isolation")) {
+        assertTrue(rs.next());
+        assertEquals("repeatable read", rs.getString(1));
+        assertFalse(rs.next());
+      }
+      try (ResultSet rs = stmt.executeQuery("show transaction_isolation")) {
+        assertTrue(rs.next());
+        assertEquals("serializable", rs.getString(1));
+        assertFalse(rs.next());
+      }
+      stmt.execute("rollback");
+
+      for (String sql :
+          new String[] {
+            "show default_transaction_isolation",
+            "show transaction isolation level",
+            "show transaction_isolation"
+          }) {
+        try (ResultSet rs = stmt.executeQuery(sql)) {
+          assertTrue(rs.next());
+          assertEquals("serializable", rs.getString(1));
+          assertFalse(rs.next());
+        }
+      }
+      stmt.execute("begin");
+      stmt.execute(INSERT);
+      stmt.execute("commit");
+      assertIsolationLevel(IsolationLevel.ISOLATION_LEVEL_UNSPECIFIED);
     }
   }
 

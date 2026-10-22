@@ -458,6 +458,11 @@ public class SessionStateTest {
 
     state.set(null, "bytea_output", "escape");
     assertEquals("escape", state.get(null, "bytea_output").getSetting());
+
+    state.set(null, "default_transaction_isolation", "repeatable read");
+    assertEquals("repeatable read", state.get(null, "default_transaction_isolation").getSetting());
+    state.set(null, "default_transaction_isolation", "serializable");
+    assertEquals("serializable", state.get(null, "default_transaction_isolation").getSetting());
   }
 
   @Test
